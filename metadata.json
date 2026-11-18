@@ -1,0 +1,6 @@
+{
+  "name": "خردوات المامو",
+  "description": "نظام محاسبة وإدارة متاجر احترافي لمتجر خردوات المامو (MAMO ACCOUNTING) بإدارة أحمد نوار المامو",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

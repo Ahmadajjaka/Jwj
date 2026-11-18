@@ -1,0 +1,223 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidServerTimestamp(ts) {
+      return ts is timestamp && ts <= request.time;
+    }
+
+    function isNumber(v) {
+      return v is int || v is float;
+    }
+
+    function isValidStoreSyncProfile(data, userId) {
+      return data.userId is string && data.userId == userId &&
+             data.storeName is string && data.storeName.size() >= 1 && data.storeName.size() <= 120 &&
+             data.managerName is string && data.managerName.size() >= 1 && data.managerName.size() <= 120 &&
+             data.currencyCode is string && data.currencyCode.size() >= 1 && data.currencyCode.size() <= 12 &&
+             data.costingMethod in ['WEIGHTED_AVERAGE', 'LAST_COST'] &&
+             isValidServerTimestamp(data.createdAt) &&
+             isValidServerTimestamp(data.updatedAt);
+    }
+
+    function isValidSyncedProduct(data) {
+      return isValidId(data.syncId) &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 160 &&
+             data.category is string && data.category.size() >= 1 && data.category.size() <= 100 &&
+             (!('barcode' in data) || (data.barcode is string && data.barcode.size() <= 80)) &&
+             isNumber(data.averageCost) && data.averageCost >= 0 &&
+             isNumber(data.sellingPrice) && data.sellingPrice >= 0 &&
+             isNumber(data.quantity) &&
+             isNumber(data.minStockLevel) && data.minStockLevel >= 0 &&
+             data.isArchived is bool &&
+             isValidServerTimestamp(data.createdAt) &&
+             isValidServerTimestamp(data.updatedAt);
+    }
+
+    function isValidSyncedParty(data) {
+      return isValidId(data.syncId) &&
+             data.partyType in ['CUSTOMER', 'SUPPLIER'] &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 160 &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() <= 40)) &&
+             isNumber(data.totalAmount) && data.totalAmount >= 0 &&
+             isNumber(data.paidAmount) && data.paidAmount >= 0 &&
+             isNumber(data.balanceDue) &&
+             isValidServerTimestamp(data.createdAt) &&
+             isValidServerTimestamp(data.updatedAt);
+    }
+
+    function isValidSyncedInvoice(data) {
+      return isValidId(data.syncId) &&
+             data.invoiceNumber is string && data.invoiceNumber.size() >= 1 && data.invoiceNumber.size() <= 60 &&
+             data.invoiceType in ['SALE', 'PURCHASE'] &&
+             (!('partySyncId' in data) || (data.partySyncId is string && data.partySyncId.size() <= 128)) &&
+             data.partyName is string && data.partyName.size() >= 1 && data.partyName.size() <= 160 &&
+             data.status in ['POSTED', 'CANCELLED'] &&
+             data.paymentMethod in ['CASH', 'CREDIT', 'PARTIAL'] &&
+             isNumber(data.subtotal) && data.subtotal >= 0 &&
+             isNumber(data.discountAmount) && data.discountAmount >= 0 &&
+             isNumber(data.netTotal) && data.netTotal >= 0 &&
+             isNumber(data.paidAmount) && data.paidAmount >= 0 &&
+             isNumber(data.remainingAmount) && data.remainingAmount >= 0 &&
+             isNumber(data.totalCost) && data.totalCost >= 0 &&
+             data.staffName is string && data.staffName.size() >= 1 && data.staffName.size() <= 120 &&
+             data.invoiceDateMs is int && data.invoiceDateMs > 0 &&
+             isValidServerTimestamp(data.createdAt) &&
+             isValidServerTimestamp(data.updatedAt);
+    }
+
+    function isValidSyncedLedgerEntry(data) {
+      return isValidId(data.syncId) &&
+             data.entryKind in ['CASH_TX', 'EXPENSE', 'DEBT_PAYMENT', 'STOCK_MOVEMENT', 'STAFF_USER', 'AUDIT_LOG'] &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 240 &&
+             data.category is string && data.category.size() >= 1 && data.category.size() <= 100 &&
+             isNumber(data.amount) &&
+             isNumber(data.quantityDelta) &&
+             (!('referenceId' in data) || (data.referenceId is string && data.referenceId.size() <= 128)) &&
+             data.staffName is string && data.staffName.size() >= 1 && data.staffName.size() <= 120 &&
+             data.occurredAtMs is int && data.occurredAtMs > 0 &&
+             isValidServerTimestamp(data.createdAt) &&
+             isValidServerTimestamp(data.updatedAt);
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false;
+
+      allow create: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().keys().hasAll(['userId', 'storeName', 'managerName', 'currencyCode', 'costingMethod', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'storeName', 'managerName', 'currencyCode', 'costingMethod', 'createdAt', 'updatedAt']) &&
+                       isValidStoreSyncProfile(incoming(), userId);
+
+      allow update: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       isValidStoreSyncProfile(incoming(), userId) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['storeName', 'managerName', 'currencyCode', 'costingMethod', 'updatedAt']);
+
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      match /products/{productId} {
+        allow get: if isOwner(userId) && isValidId(productId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(productId) &&
+                         incoming().syncId == productId &&
+                         incoming().keys().hasAll(['syncId', 'name', 'category', 'averageCost', 'sellingPrice', 'quantity', 'minStockLevel', 'isArchived', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['syncId', 'name', 'category', 'barcode', 'averageCost', 'sellingPrice', 'quantity', 'minStockLevel', 'isArchived', 'createdAt', 'updatedAt']) &&
+                         isValidSyncedProduct(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(productId) &&
+                         incoming().syncId == existing().syncId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().keys().hasOnly(['syncId', 'name', 'category', 'barcode', 'averageCost', 'sellingPrice', 'quantity', 'minStockLevel', 'isArchived', 'createdAt', 'updatedAt']) &&
+                         isValidSyncedProduct(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['name', 'category', 'barcode', 'averageCost', 'sellingPrice', 'quantity', 'minStockLevel', 'isArchived', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(productId);
+      }
+
+      match /parties/{partyId} {
+        allow get: if isOwner(userId) && isValidId(partyId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(partyId) &&
+                         incoming().syncId == partyId &&
+                         incoming().keys().hasAll(['syncId', 'partyType', 'name', 'totalAmount', 'paidAmount', 'balanceDue', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['syncId', 'partyType', 'name', 'phone', 'totalAmount', 'paidAmount', 'balanceDue', 'createdAt', 'updatedAt']) &&
+                         isValidSyncedParty(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(partyId) &&
+                         incoming().syncId == existing().syncId &&
+                         incoming().partyType == existing().partyType &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().keys().hasOnly(['syncId', 'partyType', 'name', 'phone', 'totalAmount', 'paidAmount', 'balanceDue', 'createdAt', 'updatedAt']) &&
+                         isValidSyncedParty(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'totalAmount', 'paidAmount', 'balanceDue', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(partyId);
+      }
+
+      match /invoices/{invoiceId} {
+        allow get: if isOwner(userId) && isValidId(invoiceId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(invoiceId) &&
+                         incoming().syncId == invoiceId &&
+                         incoming().keys().hasAll(['syncId', 'invoiceNumber', 'invoiceType', 'partyName', 'status', 'paymentMethod', 'subtotal', 'discountAmount', 'netTotal', 'paidAmount', 'remainingAmount', 'totalCost', 'staffName', 'invoiceDateMs', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['syncId', 'invoiceNumber', 'invoiceType', 'partySyncId', 'partyName', 'status', 'paymentMethod', 'subtotal', 'discountAmount', 'netTotal', 'paidAmount', 'remainingAmount', 'totalCost', 'staffName', 'invoiceDateMs', 'createdAt', 'updatedAt']) &&
+                         isValidSyncedInvoice(incoming());
+
+        // Only POSTED invoices can be revised or cancelled to terminal CANCELLED status; owners can purge synced cloud data from Admin panel
+        allow update: if isOwner(userId) &&
+                         isValidId(invoiceId) &&
+                         existing().status == 'POSTED' &&
+                         incoming().syncId == existing().syncId &&
+                         incoming().invoiceNumber == existing().invoiceNumber &&
+                         incoming().invoiceType == existing().invoiceType &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().keys().hasOnly(['syncId', 'invoiceNumber', 'invoiceType', 'partySyncId', 'partyName', 'status', 'paymentMethod', 'subtotal', 'discountAmount', 'netTotal', 'paidAmount', 'remainingAmount', 'totalCost', 'staffName', 'invoiceDateMs', 'createdAt', 'updatedAt']) &&
+                         isValidSyncedInvoice(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['partySyncId', 'partyName', 'status', 'paymentMethod', 'subtotal', 'discountAmount', 'netTotal', 'paidAmount', 'remainingAmount', 'totalCost', 'staffName', 'invoiceDateMs', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(invoiceId);
+      }
+
+      match /ledger_entries/{entryId} {
+        allow get: if isOwner(userId) && isValidId(entryId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(entryId) &&
+                         incoming().syncId == entryId &&
+                         incoming().keys().hasAll(['syncId', 'entryKind', 'title', 'category', 'amount', 'quantityDelta', 'staffName', 'occurredAtMs', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['syncId', 'entryKind', 'title', 'category', 'amount', 'quantityDelta', 'referenceId', 'staffName', 'occurredAtMs', 'createdAt', 'updatedAt']) &&
+                         isValidSyncedLedgerEntry(incoming());
+
+        // Audit logs and financial transactions are immutable once written; only STAFF_USER profiles may update role/title
+        allow update: if isOwner(userId) &&
+                         isValidId(entryId) &&
+                         existing().entryKind == 'STAFF_USER' &&
+                         incoming().entryKind == 'STAFF_USER' &&
+                         incoming().syncId == existing().syncId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().keys().hasOnly(['syncId', 'entryKind', 'title', 'category', 'amount', 'quantityDelta', 'referenceId', 'staffName', 'occurredAtMs', 'createdAt', 'updatedAt']) &&
+                         isValidSyncedLedgerEntry(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'category', 'amount', 'staffName', 'occurredAtMs', 'updatedAt']);
+
+        allow delete: if isOwner(userId) && isValidId(entryId);
+      }
+    }
+  }
+}

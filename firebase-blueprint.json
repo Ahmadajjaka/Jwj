@@ -1,0 +1,302 @@
+{
+  "entities": {
+    "StoreSyncProfile": {
+      "title": "StoreSyncProfile",
+      "description": "Authenticated store owner profile and store configuration synced to Firestore.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the store owner."
+        },
+        "storeName": {
+          "type": "string",
+          "description": "Display name of the hardware store."
+        },
+        "managerName": {
+          "type": "string",
+          "description": "Store manager full name."
+        },
+        "currencyCode": {
+          "type": "string",
+          "description": "Active currency code such as SYP."
+        },
+        "costingMethod": {
+          "type": "string",
+          "enum": ["WEIGHTED_AVERAGE", "LAST_COST"],
+          "description": "COGS costing valuation method."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when created (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when last synced (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": ["userId", "storeName", "managerName", "currencyCode", "costingMethod", "createdAt", "updatedAt"]
+    },
+    "SyncedProduct": {
+      "title": "SyncedProduct",
+      "description": "Hardware store inventory item synced with deterministic syncId.",
+      "type": "object",
+      "properties": {
+        "syncId": {
+          "type": "string",
+          "description": "Deterministic UUID sync identifier."
+        },
+        "name": {
+          "type": "string",
+          "description": "Product name."
+        },
+        "category": {
+          "type": "string",
+          "description": "Hardware category."
+        },
+        "barcode": {
+          "type": "string",
+          "description": "Optional barcode or SKU."
+        },
+        "averageCost": {
+          "type": "number",
+          "description": "Weighted average unit cost."
+        },
+        "sellingPrice": {
+          "type": "number",
+          "description": "Unit selling price."
+        },
+        "quantity": {
+          "type": "number",
+          "description": "Current stock quantity."
+        },
+        "minStockLevel": {
+          "type": "number",
+          "description": "Low-stock alert threshold."
+        },
+        "isArchived": {
+          "type": "boolean",
+          "description": "Soft archive flag."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp."
+        }
+      },
+      "required": ["syncId", "name", "category", "averageCost", "sellingPrice", "quantity", "minStockLevel", "isArchived", "createdAt", "updatedAt"]
+    },
+    "SyncedParty": {
+      "title": "SyncedParty",
+      "description": "Customer or supplier account synced with deterministic syncId.",
+      "type": "object",
+      "properties": {
+        "syncId": {
+          "type": "string",
+          "description": "Deterministic UUID sync identifier."
+        },
+        "partyType": {
+          "type": "string",
+          "enum": ["CUSTOMER", "SUPPLIER"],
+          "description": "Whether the party is a customer or supplier."
+        },
+        "name": {
+          "type": "string",
+          "description": "Party full name."
+        },
+        "phone": {
+          "type": "string",
+          "description": "Optional phone number."
+        },
+        "totalAmount": {
+          "type": "number",
+          "description": "Total cumulative invoices amount."
+        },
+        "paidAmount": {
+          "type": "number",
+          "description": "Total cumulative paid amount."
+        },
+        "balanceDue": {
+          "type": "number",
+          "description": "Outstanding balance."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp."
+        }
+      },
+      "required": ["syncId", "partyType", "name", "totalAmount", "paidAmount", "balanceDue", "createdAt", "updatedAt"]
+    },
+    "SyncedInvoice": {
+      "title": "SyncedInvoice",
+      "description": "Sales or purchase invoice synced idempotently by syncId.",
+      "type": "object",
+      "properties": {
+        "syncId": {
+          "type": "string",
+          "description": "Deterministic UUID sync identifier."
+        },
+        "invoiceNumber": {
+          "type": "string",
+          "description": "Sequential invoice number."
+        },
+        "invoiceType": {
+          "type": "string",
+          "enum": ["SALE", "PURCHASE"],
+          "description": "Invoice type."
+        },
+        "partySyncId": {
+          "type": "string",
+          "description": "Optional linked party syncId."
+        },
+        "partyName": {
+          "type": "string",
+          "description": "Customer or supplier display name."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["POSTED", "CANCELLED"],
+          "description": "Invoice posting status."
+        },
+        "paymentMethod": {
+          "type": "string",
+          "enum": ["CASH", "CREDIT", "PARTIAL"],
+          "description": "Payment mode."
+        },
+        "subtotal": {
+          "type": "number",
+          "description": "Subtotal before invoice discount."
+        },
+        "discountAmount": {
+          "type": "number",
+          "description": "Total discount amount."
+        },
+        "netTotal": {
+          "type": "number",
+          "description": "Final invoice total."
+        },
+        "paidAmount": {
+          "type": "number",
+          "description": "Amount paid at posting."
+        },
+        "remainingAmount": {
+          "type": "number",
+          "description": "Remaining credit balance."
+        },
+        "totalCost": {
+          "type": "number",
+          "description": "COGS or purchase cost total."
+        },
+        "staffName": {
+          "type": "string",
+          "description": "Staff user who created or updated the invoice."
+        },
+        "invoiceDateMs": {
+          "type": "integer",
+          "description": "Invoice epoch timestamp in ms."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp."
+        }
+      },
+      "required": ["syncId", "invoiceNumber", "invoiceType", "partyName", "status", "paymentMethod", "subtotal", "discountAmount", "netTotal", "paidAmount", "remainingAmount", "totalCost", "staffName", "invoiceDateMs", "createdAt", "updatedAt"]
+    },
+    "SyncedLedgerEntry": {
+      "title": "SyncedLedgerEntry",
+      "description": "Idempotent ledger record for cash transactions, expenses, debt payments, stock movements, staff profiles, and audit logs.",
+      "type": "object",
+      "properties": {
+        "syncId": {
+          "type": "string",
+          "description": "Deterministic UUID sync identifier."
+        },
+        "entryKind": {
+          "type": "string",
+          "enum": ["CASH_TX", "EXPENSE", "DEBT_PAYMENT", "STOCK_MOVEMENT", "STAFF_USER", "AUDIT_LOG"],
+          "description": "Ledger entry category."
+        },
+        "title": {
+          "type": "string",
+          "description": "Human-readable title or summary."
+        },
+        "category": {
+          "type": "string",
+          "description": "Subcategory or role."
+        },
+        "amount": {
+          "type": "number",
+          "description": "Monetary amount or signed cash delta."
+        },
+        "quantityDelta": {
+          "type": "number",
+          "description": "Stock quantity delta if applicable."
+        },
+        "referenceId": {
+          "type": "string",
+          "description": "Linked invoice, product, or party syncId."
+        },
+        "staffName": {
+          "type": "string",
+          "description": "Acting staff member name."
+        },
+        "occurredAtMs": {
+          "type": "integer",
+          "description": "Event epoch timestamp in ms."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp."
+        }
+      },
+      "required": ["syncId", "entryKind", "title", "category", "amount", "quantityDelta", "staffName", "occurredAtMs", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/StoreSyncProfile" },
+      "description": "Store profile and sync metadata owned by the signed-in Google account."
+    },
+    "/users/{userId}/products/{productId}": {
+      "schema": { "$ref": "#/entities/SyncedProduct" },
+      "description": "Synced inventory products for the owner's store."
+    },
+    "/users/{userId}/parties/{partyId}": {
+      "schema": { "$ref": "#/entities/SyncedParty" },
+      "description": "Synced customers and suppliers for the owner's store."
+    },
+    "/users/{userId}/invoices/{invoiceId}": {
+      "schema": { "$ref": "#/entities/SyncedInvoice" },
+      "description": "Synced sales and purchase invoices (POSTED invoices can be updated/cancelled; owner can purge synced cloud documents from Admin panel)."
+    },
+    "/users/{userId}/ledger_entries/{entryId}": {
+      "schema": { "$ref": "#/entities/SyncedLedgerEntry" },
+      "description": "Synced financial, stock, staff, and audit ledger entries."
+    }
+  }
+}
