@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "467786738071-p2muu0apgvrbesnsmqs29duotb84u21h.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.aistudio.mamoaccounting.khrdwt",
+            "certificate_hash": "ad6b17a583c5d5717829ecaaccf94abe62f33dfd"
+          }
+        },
+        {
           "client_id": "467786738071-tqq4c7v54iiiuqr1n4cbma7uo7j964vv.apps.googleusercontent.com",
           "client_type": 3
         }
